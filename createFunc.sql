@@ -25,8 +25,6 @@ declare
 	unsuccessful_orders int;
 	declined_cards int;
 begin
-	call update_orders();
-
 	select * into unsuccessful_orders
 	from num_unsuccessful_orders(emp_id);
 	
