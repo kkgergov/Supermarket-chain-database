@@ -50,24 +50,84 @@ before delete on employee
 for each row
 execute procedure delete_trigger3();
 ---------------------------------------------
-create or replace function insert_trigger1() returns trigger as $$
+create or replace function delete_trigger4() returns trigger as $$
 begin
-	update orders as O
-	set status = 'failed'
-	where O.order_customerid = (select customerid
-							 from customer join payment on customer.customerid = payment.payment_customerid 
-							 where payment.paymentid = new.orderid and payment.amount > customer.creditlimit);
+	delete from employee
+	where employee.employee_storeid = old.storeid;
+	
+	return old;
+end $$ language plpgsql;
+
+drop trigger if exists before_delete_store on store;
+create trigger before_delete_store
+before delete on store
+for each row
+execute procedure delete_trigger4();
+---------------------------------------------
+create or replace function delete_trigger5() returns trigger as $$
+declare
+	product_cost decimal(15,2);
+	product_quantity integer;
+	order_id integer;
+begin
+	select old.quantityordered into product_quantity;
+	select old.details_orderid into order_id;
+	
+	select price into product_cost
+	from product
+	where product.productid = old.details_productid;
+	--RAISE NOTICE '%, %', product_quantity, product_cost;
+
+	update payment
+	set amount = amount - (product_quantity*product_cost)
+	where payment.paymentid = order_id;
+	
+	call update_order_status(order_id);
+	
+	return old;
+end $$ language plpgsql;
+
+drop trigger if exists before_delete_orderdetails on orderdetails;
+create trigger before_delete_orderdetails
+before delete on orderdetails
+for each row
+execute procedure delete_trigger5();
+---------------------------------------------
+create or replace function insert_trigger2() returns trigger as $$
+declare
+	product_cost decimal(15,2);
+	product_quantity integer;
+	order_id integer;
+begin
+	select new.quantityordered into product_quantity;
+	select new.details_orderid into order_id;
+	
+	select price into product_cost
+	from product
+	where product.productid = new.details_productid;
+	--RAISE NOTICE '%, %', product_quantity, product_cost;
+
+	update payment
+	set amount = amount + product_quantity*product_cost
+	where payment.paymentid = order_id;
+	
+	call update_order_status(order_id);
 	
 	return new;
 end $$ language plpgsql;
 
-drop trigger if exists after_insert_order on orders;
-create trigger after_insert_order
-after insert on orders
+drop trigger if exists after_insert_orderDetails on orderdetails;
+create trigger after_insert_orderDetails
+after insert on orderdetails
 for each row
-execute procedure insert_trigger1();
+execute procedure insert_trigger2();
 
+--select * from payment where paymentid = 2;
+--insert into OrderDetails (details_productid, details_orderid, quantityordered) values (20, 2, 3);
+--delete from orderdetails where details_orderid = 2 and details_productid = 20;
+--update payment set amount = 0 where paymentid = 2;
 
+--delete from store where storeid = 1;
 --select * from orders;
 --delete from customer where customerid =1;
 --select * from customer join orders on customer.customerid = orders.order_customerid;

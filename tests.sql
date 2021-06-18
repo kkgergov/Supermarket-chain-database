@@ -76,3 +76,4 @@ with recursive supermarket_hierarchy as(
 
 -->(2) for each store gives the id of the employee who has serviced the most customers
 --select * from best_employee;
+
